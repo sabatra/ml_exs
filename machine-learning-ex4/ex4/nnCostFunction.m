@@ -38,30 +38,66 @@ Theta2_grad = zeros(size(Theta2));
 %         variable J. After implementing Part 1, you can verify that your
 %         cost function computation is correct by verifying the cost
 %         computed in ex4.m
-%
 
-A1=[ones(m,1) X];
-Z2=(Theta1*A1')'; %check the double transpose
-A2=[ones(m,1) sigmoid(Z2)];
-Z3=(Theta2*A2')';
+% Implement Part I -- returning the cost variable J
 
-H=sigmoid(Z3);
-% skip this as we convert y to what suits H [m2,midx]= max(H,[],2);
+% J(theta) = 1/m * sigma(i=1 to m) of sigma(k=1 to K) of [
+%                     -y(i)k * log((h(theta)(x(i))k) -
+%                    (1y(i)k) * log(1 - (h(theta)(x(i))k))]
+% where h(theta(x(i))k) is the result of the NN forward prop
+% and K is the total number of possible layers.
 
-yk = zeros(num_labels, m); 
-for i=1:m,
-  yk(y(i),i)=1;
-end
+% First initialize X input to include a row of ones
 
-J = (1/m) * sum ( sum (  (-yk) .* log(H')  -  (1-yk) .* log(1-H') ));
+X = [ones(m,1) X];
 
-theta1_reg = Theta1(:,2:end);
-theta2_reg = Theta2(:,2:end);
-reg=(lambda/(2*m))* (sum(sum(theta1_reg.^2))+sum(sum(theta2_reg.^2)));
+% Now, implement forward propagation, similar to ex3
 
-J=J+reg;
+z1 = sigmoid(Theta1 * X'); %'
+a2 = [ones(1, size(z1, 2)); z1];
+a3 = sigmoid(Theta2 * a2);
+h = a3; 
 
+% Note that this time we do not transpose a3 to create h as to make
+% the following matrix multiplication slightly simpler
 
+% Now we tranform the y result vector into a matrix where 1s in the
+% columns map to the corresponding values of y
+
+yMatrix = zeros(num_labels, m);
+
+for i=1:num_labels,
+    yMatrix(i,:) = (y==i);
+endfor
+
+% Now that we have y as a 10x5000 matrix instead of a 5000x1 vector,
+% we can use it to calculate our cost as compared to h (which is a3)
+
+% Note that for this vectorized implementation, y(i)k is given as
+% yMatrix and h is given as h(thetha)(x(i))k
+
+J = (sum( sum( -1*yMatrix.*log(h) - (1 - yMatrix).*log(1-h) ) ))/m;
+
+% Implementing regularization
+
+% For this we can steal some of the logic from ex2 costFunctionReg.m
+
+% First, we toss the first columns of each Theta(i) matrix.
+
+Theta1Reg = Theta1(:,2:size(Theta1,2));
+Theta2Reg = Theta2(:,2:size(Theta2,2));
+
+% Now implement the regularization formula described on page 6 of ex4.
+
+Reg = (lambda/(2*m)) * (sum(sum( Theta1Reg.^2 )) + sum( sum( Theta2Reg.^2 ) ));
+
+% Now just add the regularization term to the previously calculated J
+
+J = J + Reg;
+
+% -------------------------------------------------------------
+
+% Implement Part II -- implementing back propagation
 % Part 2: Implement the backpropagation algorithm to compute the gradients
 %         Theta1_grad and Theta2_grad. You should return the partial derivatives of
 %         the cost function with respect to Theta1 and Theta2 in Theta1_grad and
@@ -70,7 +106,7 @@ J=J+reg;
 %
 %         Note: The vector y passed into the function is a vector of labels
 %               containing values from 1..K. You need to map this vector into a 
-%               binary vector of 1's and 0's to be used with the neural network
+%               binary vector of 1s and 0s to be used with the neural network
 %               cost function.
 %
 %         Hint: We recommend implementing backpropagation using a for-loop
@@ -78,11 +114,48 @@ J=J+reg;
 %               first time.
 %
 
+% We are going to initialize this as a for loop from 1:m
 
+for k = 1:m,
+    % First, we do forward propogation on an X that already contains
+    % the bias node (from above)
 
+    a1 = X(k,:);
+    z2 = Theta1 * a1'; %'
 
+    a2 = sigmoid(z2);
+    a2 = [1 ; a2];
 
+    % Now we have our final activation layer a3 == h(theta)
+    a3 = sigmoid(Theta2 * a2);
 
+    % Now that we have our activation layer, we go backwards
+    % This basically just involves following along the formulas given
+    % on Page 9
+    d3 = a3 - yMatrix(:,k);
+    
+    % Re-add a bais node for z2
+    z2 = [1 ; z2];
+    d2 = (Theta2' * d3) .* sigmoidGradient(z2); %'
+    % Strip out bais node from resulting d2
+    d2 = d2(2:end);
+
+    Theta2_grad = (Theta2_grad + d3 * a2'); %'
+    Theta1_grad = (Theta1_grad + d2 * a1);
+
+endfor;
+
+% Now divide everything (element-wise) by m to return the partial
+% derivatives. Note that for regularization these will have to
+% removed/commented out.
+
+% Theta2_grad = Theta2_grad ./ m;
+% Theta1_grad = Theta1_grad ./ m;
+
+% -------------------------------------------------------------
+
+% Implement Part III -- Regularization with cost function/gradients
+%
 % Part 3: Implement regularization with the cost function and gradients.
 %
 %         Hint: You can implement this around the code for
@@ -91,22 +164,17 @@ J=J+reg;
 %               and Theta2_grad from Part 2.
 %
 
+% The formula for regularization is given on page 12 and is as
+% follows: Delta(l(i,j)) = 1/m*delta(l(i,j)) + lambda/m*(Theta(l(i,j))
+% for j >= 1
 
+% Implement for Theta1 and Theta2 when l = 0
+Theta1_grad(:,1) = Theta1_grad(:,1)./m;
+Theta2_grad(:,1) = Theta2_grad(:,1)./m;
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+% Implement for Theta1 and Theta 2 when l > 0
+Theta1_grad(:,2:end) = Theta1_grad(:,2:end)./m + ( (lambda/m) * Theta1(:,2:end) );
+Theta2_grad(:,2:end) = Theta2_grad(:,2:end)./m + ( (lambda/m) * Theta2(:,2:end) );
 
 
 % -------------------------------------------------------------
