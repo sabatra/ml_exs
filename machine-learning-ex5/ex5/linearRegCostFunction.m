@@ -18,6 +18,7 @@ grad = zeros(size(theta));
 %
 %               You should set J to the cost and grad to the gradient.
 %
+% =========================================================================
 
 h = X * theta;
 errorRate = h-y;
@@ -26,8 +27,13 @@ J = (1/(2*m)) * sum(sqdError);
 sqtheta = theta(2:end) .^2;
 regu = ((lambda/(2*m)) * sum(sqtheta));
 J = J + regu;
-% =========================================================================
 
+grad = errorRate'*X; %'using metrics
+grad = grad .* (1/m);
+thetareg = theta;
+thetareg(1)=0;
+thetareg = thetareg .* (lambda/m);
+grad = grad + thetareg'; %'issue is transpose
 grad = grad(:);
 
 end

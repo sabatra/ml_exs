@@ -15,11 +15,19 @@ X_poly = zeros(numel(X), p);
 %
 % 
 
-
-
-
+for i=1:p
+    for j=1:size(X)
+        if(j==1) 
+            X_poly(j,i) = X(j);
+        else
+            X_poly(j,i) = power(X(j),i);
+        end
+end
 
 
 % =========================================================================
+
+
+
 
 end
